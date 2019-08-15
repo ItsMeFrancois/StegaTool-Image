@@ -63,7 +63,7 @@ def main():
     
     width, height = image.size          #Speichere Breite und Hoehe des Bildes
     
-    max_secret_size = (width*height)    #Berechne die maximale Anzahl an Geheimnisbytes, die im Traeger gespeichert werden koennen
+    max_secret_size = width*height*3    #Berechne die maximale Anzahl an Geheimnisbits, die im Traeger gespeichert werden koennen
     
     secret_bits = fileToBits(args.secretFile)   #Bitarray der geladenen Geheimdatei
 
@@ -78,26 +78,33 @@ def main():
 
         #Anzahl der Bits des Geheimnisses
         bits_count = len(secret_bits)
-    
+        
+        
+        #print("Secret bits:{0}".format(secret_bits))
         #Manipulation der Pixelwerte
         if(bits_count <= max_secret_size):                              #Pruefe ob die Bitsanzahl des Geheimnisses kleiner als die Anzahl der Anzahl an Bits ist, die im Traeger verstecket werden koennen
-            for i,bit in enumerate(secret_bits):                        #Fuer jedes Bit des Geheimnisses...
-                pixel = getPixel(i+1,width,image)                       #Ermittle RGB-Werte des i+1 Pixels (i startet bei 0)
-                R = pixel[0]
-                G = pixel[1]
-                B = pixel[2]
-                new_G = 0                                               #Zwischenspeicher fuer neuen Gruenwert nach Manipulation des LSB (Least Significant Bit)
+            for index_pixel in range(0, int(len(secret_bits)/3)):            #Fuer jedes Bit des Geheimnisses...
+                #print("{0}. Pixel position:{1}".format(index_pixel+1,calcXY(index_pixel+1,width)))
+                pixel = getPixel(index_pixel + 1, width, image)
+                new_pixel = list(pixel)[0:3]
+                #print("Bits to hide:{0}".format(secret_bits[index_pixel*3:index_pixel*3+3]))
+                #print("Before:{0}".format(new_pixel))
+
+                for color_channel in range(0,3):
+                    
+                    bit = secret_bits[index_pixel*3 + color_channel]
+                    if(bit == 1):                                                                  #Wenn das zu speichernde Bit des Geheimnisses gleich 1 ist
+                       new_pixel[color_channel] = new_pixel[color_channel] | 1  #xxxx or 00001 = xxx1                 #Logische ODER-Funktion mit dem Gruenwert des Pixels und 0x0...1
+                    else:                                                                          #Wenn das zu speichernde Bit des Geheimnisses nicht 1 ist, hier 0
+                       new_pixel[color_channel] = new_pixel[color_channel] & 254 #xxxx and 1110 = xxx0
+                    
+                    
+                #print("After:{0}".format(new_pixel))
+                setPixel(index_pixel +1, tuple(new_pixel), width, pixels)
             
-                if(bit == 1):                                           #Wenn das zu speichernde Bit des Geheimnisses gleich 1 ist
-                    new_G = G | 1  #xxxx or 00001 = xxx1                #Logische ODER-Funktion mit dem Gruenwert des Pixels und 0x0...1
-                else:                                                   #Wenn das zu speichernde Bit des Geheimnisses nicht 1 ist, hier 0
-                    new_G = G & 254 #xxxx and 1110 = xxx0
-            
-                newRGB = (R,new_G,B)                                                        #Neues RGB-Tupel erstellen
-                setPixel(i+1, newRGB,width,pixels)                                                       #Generiertes Tupel mit modifiziertem Gruenwert in das Bild im Speicher setzen
-            
-                if(args.outputFile.split(".")[1] == "png"):
-                    image.save(args.outputFile, compress_level= 1) 
+            if(args.outputFile.split(".")[1] == "png"):
+                image.save(args.outputFile, compress_level= 6)
+                print("Succesfully saved!\n\nInfo:\n-----\nBytes\nSaved file: {1}\nSaved: {2} Bytes\nMax. Capacity: {0} Bytes".format(max_secret_size / 8,args.inputFile, bits_count/8))
                              
         else:
             print("Medium ist not large enough to store secret data!\nMedium must contain at least {0} pixels".format(bits_count))
