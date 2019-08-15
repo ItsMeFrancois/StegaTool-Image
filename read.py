@@ -2,6 +2,8 @@ import sys
 import numpy as np
 import math
 from PIL import Image
+import argparse
+import bitarray
 
 def calcXY(x, width):
     row = math.floor(x/width)
@@ -17,41 +19,34 @@ def calcXY(x, width):
 def getPixel(img, x, width):
     return image.getpixel(calcXY(x, width))
 
-if (sys.argv[1] == 'read'):
-    with open("{0}_rawRGB.txt".format(sys.argv[2].split(".")[0]),"w") as f:
-        im = Image.open(sys.argv[2])
-        pixels = list(im.getdata())
-        for pixel in pixels:
-            f.write("{0}\n".format(str(pixel)))
+#Argumente festlegen
+parser = argparse.ArgumentParser(description='Helppage for steganography tool!')
 
-elif (sys.argv[1] == 'check'):
-    f1 = open(sys.argv[2],"r")
-    f2 = open(sys.argv[3],"r")
-    l1 = f1.readlines()
-    l2 = f2.readlines()
+parser.add_argument('--read', '-r', help='Read', default=False, nargs='?', const=True, dest='read')
+parser.add_argument('--count', '-c', help='How many bytes to read', default=False, nargs='?', const=True, dest='count')
+parser.add_argument('--inputfile', '-i', help='Path to inputfile', default=None, nargs='?', dest='input_file')
+parser.add_argument('--outputfile', '-o', help='Path to outputfile', default=None, nargs='?', dest='output_file')
 
-    for index in range(0,len(l1)):
-        if(l1[index] != l2[index]):
-            print("Ungleich!")
-            sys.exit()
-    print("Gleich!")
-elif(sys.argv[1] == 'extract'):
-    #Anzahl an Bits, die zu extrahieren sind
-    bits_to_read = int(sys.argv[3]) * 8
-    image = Image.open(sys.argv[2])
+
+args = parser.parse_args()
+
+if args.read:
+    bits_to_read = int(args.count) * 8
+    image = Image.open(args.input_file)
     width, height = image.size
+
     bits = []
 
-    for i in range(1, bits_to_read+1):
-        pixel = getPixel(image, i, width)
-        gValue = np.uint8(pixel[1])
-        gValue_bits = np.unpackbits(gValue)
-        bits.append(gValue_bits[7])
+    for index in range(0, bits_to_read,3):
+        #print("{0}. Pixel position:{1}".format(index+1,calcXY(index+1,width)))
+        pixel = getPixel(image, (index/3)+1, width)
+        #print(pixel)
+        for color_channel in range(0,3):
+            value = np.uint8(pixel[color_channel])
+            value_bits = np.unpackbits(value)
+            bits.append(value_bits[7])
     
-   
-    for i in range(0,len(bits), 8):
-        value = 0
-        for o,bit in enumerate(bits[i:i+8]):
-            #print(o)
-            value += pow(2,7-o) * bit
-        print(chr(value))
+    bits = bitarray.bitarray(bits)
+    with open(args.output_file, 'wb') as fh:
+        bits.tofile(fh)
+    
