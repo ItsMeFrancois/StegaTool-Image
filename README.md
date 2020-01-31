@@ -1,2 +1,2 @@
-# Steganographie-mit-Python
-Repository des Blogeintrages
+# StegaTool-Image
+Basic steganography tool for images 
